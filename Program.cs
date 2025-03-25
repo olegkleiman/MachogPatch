@@ -13,7 +13,7 @@ namespace MachogPatch
         {
             var host = new HostBuilder()
                 .ConfigureFunctionsWorkerDefaults()
-                .ConfigureServices(services =>
+                .ConfigureServices((context,services) =>
                 {
                     services.AddApplicationInsightsTelemetryWorkerService();
                     services.ConfigureFunctionsApplicationInsights();
@@ -27,6 +27,9 @@ namespace MachogPatch
                     });
 
                     services.AddSingleton<IParkingProviderService, ParkingProviderService>();
+
+                    IConfiguration configuration = context.Configuration;
+                    services.AddSingleton<IConfiguration>(configuration);
                 })
                 .Build();
 
