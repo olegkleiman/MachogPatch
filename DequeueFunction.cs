@@ -1,16 +1,14 @@
-using System;
-using System.Resources;
-using System.Text.Json;
 using Azure.Storage.Queues.Models;
 using MachogPatch.Entities;
 using MachogPatch.Services.ParkingProviderService;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace MachogPatch
 {
-    public class DequeueFunction(IParkingProviderService parkingService, 
+    public class DequeueFunction(IParkingProviderService parkingService,
                                 ILogger<DequeueFunction> logger)
     {
         private readonly IParkingProviderService _parkingService = parkingService;
@@ -25,7 +23,7 @@ namespace MachogPatch
             try
             {
                 ParkingProviderMessage? providerMessage = JsonSerializer.Deserialize<ParkingProviderMessage>(message.MessageText);
-                if( providerMessage is null )
+                if (providerMessage is null)
                 {
                     throw new ArgumentNullException("providerMessage");
                 }
@@ -48,7 +46,7 @@ namespace MachogPatch
                 };
             }
 
-            
+
         }
     }
 }

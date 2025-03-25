@@ -6,17 +6,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 
 namespace MachogPatch
 {
-    public class EnqueueFunction(IConfiguration? configuration,
+    public class EnqueueFunction(QueueClient? queueClient,
                                  ILogger<EnqueueFunction> logger)
     {
-        private readonly IConfiguration?            _configuration = configuration;
+        private readonly QueueClient?               _queueClient = queueClient;
         private readonly ILogger<EnqueueFunction>   _logger = logger;
 
         [Function(nameof(EnqueueFunction))]
@@ -37,18 +36,16 @@ namespace MachogPatch
                 var requestBody = await reader.ReadToEndAsync(ct);
 
                 // Try to deserialize just to ensure that the message is in correct format
-                var message = JsonSerializer.Deserialize<ParkingProviderMessage>(requestBody);
+                JsonSerializer.Deserialize<ParkingProviderMessage>(requestBody);
+
+                // The actual message will be written to the queue in base64 format
                 string _message = Convert.ToBase64String(Encoding.UTF8.GetBytes(requestBody));
+                Response response = await _queueClient.CreateIfNotExistsAsync(default, ct);
 
-                string queueConnectionString = _configuration["AzureWebJobsStorage"];
-                string queueName = _configuration["QueueName"];
-                QueueClient queueClient = new(queueConnectionString, queueName);
-                Response response = await queueClient.CreateIfNotExistsAsync();
-
-                if( !await queueClient.ExistsAsync(ct) )
+                if (!await _queueClient.ExistsAsync(ct))
                     throw new InvalidOperationException("Queue does not exist");
 
-                Response<SendReceipt> receipt = await queueClient.SendMessageAsync(_message, ct);
+                Response<SendReceipt> receipt = await _queueClient.SendMessageAsync(_message, ct);
                 return new OkObjectResult(receipt.Value.MessageId);
 
             }

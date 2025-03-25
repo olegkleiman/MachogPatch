@@ -1,3 +1,4 @@
+using Azure.Storage.Queues;
 using MachogPatch.Services.ParkingProviderService;
 using MachogPatch.Utils;
 using Microsoft.Azure.Functions.Worker;
@@ -29,7 +30,12 @@ namespace MachogPatch
                     services.AddSingleton<IParkingProviderService, ParkingProviderService>();
 
                     IConfiguration configuration = context.Configuration;
-                    services.AddSingleton<IConfiguration>(configuration);
+
+                    string queueConnectionString = configuration["AzureWebJobsStorage"];
+                    string queueName = configuration["QueueName"];
+
+                    services.AddSingleton( sp => new QueueClient(queueConnectionString, queueName));
+
                 })
                 .Build();
 
