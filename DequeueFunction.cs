@@ -1,5 +1,6 @@
 using System;
 using System.Resources;
+using System.Text.Json;
 using Azure.Storage.Queues.Models;
 using MachogPatch.Entities;
 using MachogPatch.Services.ParkingProviderService;
@@ -23,11 +24,12 @@ namespace MachogPatch
 
             try
             {
-                ParkingProviderMessage providerMessage = new ParkingProviderMessage
+                ParkingProviderMessage? providerMessage = JsonSerializer.Deserialize<ParkingProviderMessage>(message.MessageText);
+                if( providerMessage is null )
                 {
-                    VehicleNumber = message.MessageText,
-                    ParkingProvider = 1
-                };
+                    throw new ArgumentNullException("providerMessage");
+                }
+
                 await _parkingService.UpdateRegistration(providerMessage, ct);
                 return new OkObjectResult(true);
             }

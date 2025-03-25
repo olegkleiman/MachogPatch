@@ -8,6 +8,7 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Text;
 using System.Text.Json;
 
 namespace MachogPatch
@@ -35,14 +36,28 @@ namespace MachogPatch
                 using var reader = new StreamReader(req.Body);
                 var requestBody = await reader.ReadToEndAsync(ct);
 
+                // Try to deserialize just to ensure that the message is in correct format
                 var message = JsonSerializer.Deserialize<ParkingProviderMessage>(requestBody);
+                string _message = Convert.ToBase64String(Encoding.UTF8.GetBytes(requestBody));
 
                 string queueConnectionString = _configuration["AzureWebJobsStorage"];
                 string queueName = _configuration["QueueName"];
                 QueueClient queueClient = new(queueConnectionString, queueName);
-                Response<SendReceipt> receipt = await queueClient.SendMessageAsync(requestBody, ct);
+                Response response = await queueClient.CreateIfNotExistsAsync();
+
+                if( !await queueClient.ExistsAsync(ct) )
+                {
+                    throw new InvalidOperationException("Queue does not exist");
+                }
+
+                Response<SendReceipt> receipt = await queueClient.SendMessageAsync(_message, ct);
+                
+                QueueProperties properties = await queueClient.GetPropertiesAsync();
+                var msg = await queueClient.PeekMessagesAsync();
+                //var msg = await queueClient.PeekMessageAsync(ct);
 
                 return new OkObjectResult(receipt.Value.MessageId);
+
             }
             catch (Exception ex) when (ex is TaskCanceledException)
             {
