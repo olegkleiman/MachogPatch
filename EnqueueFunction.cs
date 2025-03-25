@@ -27,7 +27,7 @@ namespace MachogPatch
                             Required = true,
                             Description = "The message to enqueue")]
 
-        public async Task<IActionResult> Run([Microsoft.Azure.Functions.Worker.HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequestData req,
+        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "messages")] HttpRequestData req,
                                              //[Microsoft.Azure.WebJobs.Queue("parking-provider", Connection = "AzureWebJobsStorage")] ICollector<string> queueCollector,
                                              CancellationToken ct = default)
         {
@@ -46,16 +46,9 @@ namespace MachogPatch
                 Response response = await queueClient.CreateIfNotExistsAsync();
 
                 if( !await queueClient.ExistsAsync(ct) )
-                {
                     throw new InvalidOperationException("Queue does not exist");
-                }
 
                 Response<SendReceipt> receipt = await queueClient.SendMessageAsync(_message, ct);
-                
-                QueueProperties properties = await queueClient.GetPropertiesAsync();
-                var msg = await queueClient.PeekMessagesAsync();
-                //var msg = await queueClient.PeekMessageAsync(ct);
-
                 return new OkObjectResult(receipt.Value.MessageId);
 
             }
