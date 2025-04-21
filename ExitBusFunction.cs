@@ -40,6 +40,9 @@ namespace MachogPatch
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error deserializing message body: {ex.Message}");
+
+                // Dead-letter the message in case of an error
+                await messageActions.DeadLetterMessageAsync(message, new Dictionary<string, object>(), ex.Message);
                 throw;
             }
 
