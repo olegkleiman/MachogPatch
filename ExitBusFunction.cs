@@ -17,7 +17,7 @@ namespace MachogPatch
 
         [Function(nameof(ExitBusFunction))]
         public async Task Run(
-            [ServiceBusTrigger("provider-topic", Connection = "SBConnectionString")]
+            [ServiceBusTrigger("parking-provider", Connection = "SBConnectionString")]
             ServiceBusReceivedMessage message,
             ServiceBusMessageActions messageActions)
         {

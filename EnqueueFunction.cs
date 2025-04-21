@@ -45,18 +45,19 @@ namespace MachogPatch
                 // The actual message will be written to the queue in base64 format
                 string _message = Convert.ToBase64String(Encoding.UTF8.GetBytes(requestBody));
                 Response response = await _queueClient.CreateIfNotExistsAsync(default, ct);
-
+                
                 if (!await _queueClient.ExistsAsync(ct))
                     throw new InvalidOperationException("Queue does not exist");
+
+                //
+                // Publish the message to Storage Account Queue
+                Response<SendReceipt> receipt = await _queueClient.SendMessageAsync(_message, ct);
 
                 //
                 // Publish the message to Service Bus
                 ServiceBusMessage message = new(_message);
                 await _sbSender?.SendMessageAsync(message, ct);
 
-                //
-                // Pub;ish the message to Topic
-                Response<SendReceipt> receipt = await _queueClient.SendMessageAsync(_message, ct);
                 return new OkObjectResult(receipt.Value.MessageId);
             }
             catch (Exception ex) when (ex is TaskCanceledException)

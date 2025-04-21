@@ -38,10 +38,12 @@ namespace MachogPatch
 
                     services.AddSingleton(sp => new QueueClient(queueConnectionString, queueName));
 
+                    //
+                    // Service Bus staff
+                    //
                     string? sbConnectionString = configuration["SBConnectionString"];
                     services.AddAzureClients(clientBuilder =>
                     {
-                        //clientBuilder.UseCredential(new DefaultAzureCredential());
                         clientBuilder.AddServiceBusClient(sbConnectionString)
                                         .WithName("MyServiceBusClient");
                     });
@@ -52,13 +54,13 @@ namespace MachogPatch
                         return client.CreateSender(sbQueueName);
 
                     });
-                    services.AddSingleton<ServiceBusSender>(provider => {
-                        var clientFactory = provider.GetRequiredService<IAzureClientFactory<ServiceBusClient>>();
-                        var client = clientFactory.CreateClient("MyServiceBusClient");
-                        string? sbTopicName = configuration["SQTopicName"];
-                        return client.CreateSender(sbTopicName);
+                    //services.AddSingleton<ServiceBusSender>(provider => {
+                    //    var clientFactory = provider.GetRequiredService<IAzureClientFactory<ServiceBusClient>>();
+                    //    var client = clientFactory.CreateClient("MyServiceBusClient");
+                    //    string? sbTopicName = configuration["SQTopicName"];
+                    //    return client.CreateSender(sbTopicName);
 
-                    });
+                    //});
                 })
                 .Build();
 
