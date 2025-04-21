@@ -35,6 +35,7 @@ namespace MachogPatch
 
                     string? queueConnectionString = configuration["AzureWebJobsStorage"];
                     string? queueName = configuration["QueueName"];
+                    services.AddSingleton<IConfiguration>(context.Configuration);
 
                     services.AddSingleton(sp => new QueueClient(queueConnectionString, queueName));
 
@@ -47,14 +48,22 @@ namespace MachogPatch
                         clientBuilder.AddServiceBusClient(sbConnectionString)
                                         .WithName("MyServiceBusClient");
                     });
-                    services.AddSingleton<ServiceBusSender>(provider => {
+                    services.AddSingleton<ServiceBusClient>(provider =>
+                    {
                         var clientFactory = provider.GetRequiredService<IAzureClientFactory<ServiceBusClient>>();
-                        var client = clientFactory.CreateClient("MyServiceBusClient");
-                        string? sbQueueName = configuration["SBQueueName"];
-                        return client.CreateSender(sbQueueName);
+                        ServiceBusClient client = clientFactory.CreateClient("MyServiceBusClient");
 
+                        return client;
                     });
                     //services.AddSingleton<ServiceBusSender>(provider => {
+                    //    var clientFactory = provider.GetRequiredService<IAzureClientFactory<ServiceBusClient>>();
+                    //    var client = clientFactory.CreateClient("MyServiceBusClient");
+                    //    string? sbQueueName = configuration["SBQueueName"];
+                    //    return client.CreateSender(sbQueueName);
+
+                    //});
+                    //services.AddSingleton<ServiceBusSender>(provider =>
+                    //{
                     //    var clientFactory = provider.GetRequiredService<IAzureClientFactory<ServiceBusClient>>();
                     //    var client = clientFactory.CreateClient("MyServiceBusClient");
                     //    string? sbTopicName = configuration["SQTopicName"];

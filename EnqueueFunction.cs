@@ -10,15 +10,21 @@ using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using System.Net;
+using Microsoft.Extensions.Configuration;
+using System.Configuration;
 
 namespace MachogPatch
 {
     public class EnqueueFunction(QueueClient? queueClient,
-                                 ServiceBusSender? sbSender,
+                                 ServiceBusClient sbClient,
+                                 IConfiguration configuration,
                                  ILogger<EnqueueFunction> logger)
     {
         private readonly QueueClient?               _queueClient = queueClient;
-        private readonly ServiceBusSender?          _sbSender = sbSender;
+        private readonly ServiceBusClient           _sbclient = sbClient;
+        private readonly IConfiguration             _configuration = configuration;
+
         private readonly ILogger<EnqueueFunction>   _logger = logger;
 
         [Function(nameof(EnqueueFunction))]
@@ -39,24 +45,40 @@ namespace MachogPatch
                 var requestBody = await reader.ReadToEndAsync(ct);
 
                 // Try to deserialize just to ensure that the message is in correct format
-                JsonSerializer.Deserialize<ParkingProviderMessage>(requestBody);
+                ParkingProviderMessage? _message = JsonSerializer.Deserialize<ParkingProviderMessage>(requestBody) 
+                        ?? throw new ArgumentNullException("Could not desrialize the payload");
 
                 //
                 // The actual message will be written to the queue in base64 format
-                string _message = Convert.ToBase64String(Encoding.UTF8.GetBytes(requestBody));
+                string _messageToSend = Convert.ToBase64String(Encoding.UTF8.GetBytes(requestBody));
                 Response response = await _queueClient.CreateIfNotExistsAsync(default, ct);
-                
+
                 if (!await _queueClient.ExistsAsync(ct))
                     throw new InvalidOperationException("Queue does not exist");
 
                 //
                 // Publish the message to Storage Account Queue
-                Response<SendReceipt> receipt = await _queueClient.SendMessageAsync(_message, ct);
+                Response<SendReceipt> receipt = await _queueClient.SendMessageAsync(_messageToSend, ct);
 
                 //
-                // Publish the message to Service Bus
-                ServiceBusMessage message = new(_message);
-                await _sbSender?.SendMessageAsync(message, ct);
+                // Publish the message to Service Bus Queue
+                string sbQueueName = _configuration["SBQueueName"];
+                ServiceBusSender queueSender = _sbclient.CreateSender(sbQueueName);
+                ServiceBusMessage message = new(_messageToSend)
+                {
+                    ApplicationProperties =
+                    {
+                        { "app_id", _message.AppID }
+                    }
+                };
+                await queueSender?.SendMessageAsync(message, ct);
+
+                // 
+                // Publish to Service Bus Topic
+                string sbTopicName = _configuration["SQTopicName"];
+                ServiceBusSender topicSender = _sbclient.CreateSender(sbTopicName);
+
+                await topicSender?.SendMessageAsync(message, ct);
 
                 return new OkObjectResult(receipt.Value.MessageId);
             }
