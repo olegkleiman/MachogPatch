@@ -1,7 +1,9 @@
+using Azure.Messaging.ServiceBus;
 using Azure.Storage.Queues;
 using MachogPatch.Services.ParkingProviderService;
 using MachogPatch.Utils;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,7 +16,7 @@ namespace MachogPatch
         {
             var host = new HostBuilder()
                 .ConfigureFunctionsWorkerDefaults()
-                .ConfigureServices((context,services) =>
+                .ConfigureServices(async (context,services) =>
                 {
                     services.AddApplicationInsightsTelemetryWorkerService();
                     services.ConfigureFunctionsApplicationInsights();
@@ -31,11 +33,32 @@ namespace MachogPatch
 
                     IConfiguration configuration = context.Configuration;
 
-                    string queueConnectionString = configuration["AzureWebJobsStorage"];
-                    string queueName = configuration["QueueName"];
+                    string? queueConnectionString = configuration["AzureWebJobsStorage"];
+                    string? queueName = configuration["QueueName"];
 
-                    services.AddSingleton( sp => new QueueClient(queueConnectionString, queueName));
+                    services.AddSingleton(sp => new QueueClient(queueConnectionString, queueName));
 
+                    string? sbConnectionString = configuration["SBConnectionString"];
+                    services.AddAzureClients(clientBuilder =>
+                    {
+                        //clientBuilder.UseCredential(new DefaultAzureCredential());
+                        clientBuilder.AddServiceBusClient(sbConnectionString)
+                                        .WithName("MyServiceBusClient");
+                    });
+                    services.AddSingleton<ServiceBusSender>(provider => {
+                        var clientFactory = provider.GetRequiredService<IAzureClientFactory<ServiceBusClient>>();
+                        var client = clientFactory.CreateClient("MyServiceBusClient");
+                        string? sbQueueName = configuration["SBQueueName"];
+                        return client.CreateSender(sbQueueName);
+
+                    });
+                    services.AddSingleton<ServiceBusSender>(provider => {
+                        var clientFactory = provider.GetRequiredService<IAzureClientFactory<ServiceBusClient>>();
+                        var client = clientFactory.CreateClient("MyServiceBusClient");
+                        string? sbTopicName = configuration["SQTopicName"];
+                        return client.CreateSender(sbTopicName);
+
+                    });
                 })
                 .Build();
 

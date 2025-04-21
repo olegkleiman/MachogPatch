@@ -9,13 +9,16 @@ using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
+using Azure.Messaging.ServiceBus;
 
 namespace MachogPatch
 {
     public class EnqueueFunction(QueueClient? queueClient,
+                                 ServiceBusSender? sbSender,
                                  ILogger<EnqueueFunction> logger)
     {
         private readonly QueueClient?               _queueClient = queueClient;
+        private readonly ServiceBusSender?          _sbSender = sbSender;
         private readonly ILogger<EnqueueFunction>   _logger = logger;
 
         [Function(nameof(EnqueueFunction))]
@@ -38,6 +41,7 @@ namespace MachogPatch
                 // Try to deserialize just to ensure that the message is in correct format
                 JsonSerializer.Deserialize<ParkingProviderMessage>(requestBody);
 
+                //
                 // The actual message will be written to the queue in base64 format
                 string _message = Convert.ToBase64String(Encoding.UTF8.GetBytes(requestBody));
                 Response response = await _queueClient.CreateIfNotExistsAsync(default, ct);
@@ -45,9 +49,15 @@ namespace MachogPatch
                 if (!await _queueClient.ExistsAsync(ct))
                     throw new InvalidOperationException("Queue does not exist");
 
+                //
+                // Publish the message to Service Bus
+                ServiceBusMessage message = new(_message);
+                await _sbSender?.SendMessageAsync(message, ct);
+
+                //
+                // Pub;ish the message to Topic
                 Response<SendReceipt> receipt = await _queueClient.SendMessageAsync(_message, ct);
                 return new OkObjectResult(receipt.Value.MessageId);
-
             }
             catch (Exception ex) when (ex is TaskCanceledException)
             {
